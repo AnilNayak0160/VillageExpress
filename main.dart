@@ -6,9 +6,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase (for OTP)
   await Firebase.initializeApp();
+
+  // Initialize Supabase (for Storage & DB)
+  await Supabase.initialize(
+    url: 'https://zwwaimzznykyjmknzdhr.supabase.co', // Get from Supabase Project Settings > API
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3d2FpbXp6bnlreWpta256ZGhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0OTA2MjMsImV4cCI6MjA5MjA2NjYyM30.5B6q00NnvomlTIjwKbNe44AVHY3j381-dYCS3FDir5Q', // Get from Supabase Project Settings > API
+  );
+
   runApp(MyApp());
 }
+
+// Shortcut to use Supabase anywhere in your code
+final supabase = Supabase.instance.client;
+
 
 Color primaryColor = Color(0xFFFF5722);
 
