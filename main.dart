@@ -102,22 +102,30 @@ class HomeScreen extends StatelessWidget {
                   icon: Icons.shopping_bag_outlined,
                   themeColor: const Color(0xFF328562),
                   onTap: () {
-                    // Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerPage()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AddProductPage())
+                    );
                   },
+
                 ),
 
                 const SizedBox(height: 20),
 
-                // --- SHOPKEEPER CARD ---
-                HoverCard(
-                  title: "I'm a Shopkeeper",
-                  subtitle: "Register your shop & receive\norders from customers",
-                  icon: Icons.storefront_outlined,
-                  themeColor: const Color(0xFFFF5722),
-                  onTap: () {
-                    // Navigator.push(context, MaterialPageRoute(builder: (_) => ShopkeeperPage()));
-                  },
-                ),
+               // Inside your HomeScreen
+HoverCard(
+  title: "I'm a Shopkeeper",
+  subtitle: "Register your shop & receive\norders from customers",
+  icon: Icons.storefront_outlined,
+  themeColor: const Color(0xFFFF5722), 
+  onTap: () {
+    Navigator.push(
+      context, 
+      MaterialPageRoute(builder: (context) => const ShopChoicePage()) // <--- GO HERE
+    );
+  },
+),
+
 
 
               ],
@@ -262,6 +270,7 @@ class _AddProductPageState extends State<AddProductPage> {
 
   // Selection Data
   String? _selectedCategory;
+
   final List<String> _categories = ["Food", "Grocery", "Cloth", "Medicine", "Electronics", "Hardware", "Stationary", "Other"];
 
   // Files
@@ -276,11 +285,51 @@ class _AddProductPageState extends State<AddProductPage> {
 
   // Image Picker Logic
   Future<void> _pickFile(bool isShopImage) async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 50);
-    if (picked != null) {
-      setState(() => isShopImage ? _shopImage = File(picked.path) : _aadharImage = File(picked.path));
-    }
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Select Image Source",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Color(0xFFFF5722)),
+              title: const Text("Take Photo (Recommended for Emulator)"),
+              onTap: () async {
+                Navigator.pop(context);
+                final picked = await ImagePicker().pickImage(source: ImageSource.camera);
+                if (picked != null) {
+                  setState(() => isShopImage ? _shopImage = File(picked.path) : _aadharImage = File(picked.path));
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Color(0xFFFF5722)),
+              title: const Text("Choose from Gallery"),
+              onTap: () async {
+                Navigator.pop(context);
+                final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+                if (picked != null) {
+                  setState(() => isShopImage ? _shopImage = File(picked.path) : _aadharImage = File(picked.path));
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
+
+
+
 
   // --- REGISTRATION LOGIC ---
   Future<void> _handleRegistration() async {
@@ -463,3 +512,435 @@ class _AddProductPageState extends State<AddProductPage> {
     );
   }
 }
+
+class ShopChoicePage extends StatelessWidget {
+  const ShopChoicePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Color(0xFF102C2E))),
+      backgroundColor: Colors.white,
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.storefront, size: 80, color: Color(0xFFFF5722)),
+            const SizedBox(height: 20),
+            const Text("Shopkeeper Portal", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF102C2E))),
+            const SizedBox(height: 40),
+            
+            // --- LOGIN OPTION ---
+            // Inside ShopChoicePage
+_buildChoiceButton(
+  context,
+  title: "Login to Shop Dashboard",
+  subtitle: "Manage your existing shop",
+  icon: Icons.dashboard_customize,
+  color: const Color(0xFF102C2E),
+  onTap: () {
+     // Navigate to the new Login Page
+     Navigator.push(context, MaterialPageRoute(builder: (_) => const ShopLoginPage()));
+  },
+),
+
+
+            const SizedBox(height: 20),
+
+            // --- REGISTER OPTION ---
+            _buildChoiceButton(
+              context,
+              title: "Register Your Shop",
+              subtitle: "Join Village Market place",
+              icon: Icons.app_registration_rounded,
+              color: const Color(0xFFFF5722),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductPage()));
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChoiceButton(BuildContext context, {required String title, required String subtitle, required IconData icon, required Color color, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 30),
+            const SizedBox(width: 15),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              ],
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ShopLoginPage extends StatefulWidget {
+  const ShopLoginPage({super.key});
+
+  @override
+  _ShopLoginPageState createState() => _ShopLoginPageState();
+}
+
+class _ShopLoginPageState extends State<ShopLoginPage> {
+  final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
+  bool _otpSent = false;
+  bool _isLoading = false;
+  String _vId = "";
+
+  // 1. Validate Phone in Supabase & Send OTP
+  void _checkAndSendOtp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty || phone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Enter valid phone number")));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Check if phone exists in Supabase 'shops' table
+      final shop = await supabase
+          .from('shops')
+          .select()
+          .eq('phone', phone)
+          .maybeSingle();
+
+      if (shop == null) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This number is not registered as a Shopkeeper!")),
+        );
+        return;
+      }
+
+      // If exists, send Firebase OTP
+      await firebase_auth.FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: "+91$phone",
+        verificationCompleted: (cred) {},
+        verificationFailed: (e) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${e.message}")));
+        },
+        codeSent: (vId, token) {
+          setState(() {
+            _vId = vId;
+            _otpSent = true;
+            _isLoading = false;
+          });
+        },
+        codeAutoRetrievalTimeout: (v) {},
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("System Error. Try again.")));
+    }
+  }
+
+  // 2. Verify OTP & Open Dashboard
+  void _verifyAndLogin() async {
+    setState(() => _isLoading = true);
+    try {
+      final cred = firebase_auth.PhoneAuthProvider.credential(
+        verificationId: _vId,
+        smsCode: _otpController.text.trim(),
+      );
+
+      // Sign in to Firebase
+      await firebase_auth.FirebaseAuth.instance.signInWithCredential(cred);
+
+      // Fetch shop data one last time to pass to Dashboard
+      final shopData = await supabase
+          .from('shops')
+          .select()
+          .eq('phone', _phoneController.text.trim())
+          .single();
+
+      setState(() => _isLoading = false);
+      
+      // Navigate to Dashboard
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => ShopDashboard(shopData: shopData)),
+        (route) => false,
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid OTP!")));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Shopkeeper Login"), backgroundColor: Colors.white, foregroundColor: Colors.black, elevation: 0),
+      backgroundColor: Colors.white,
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const Icon(Icons.lock_person, size: 80, color: Color(0xFF102C2E)),
+            const SizedBox(height: 20),
+            const Text("Login to your Dashboard", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 30),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              enabled: !_otpSent,
+              decoration: InputDecoration(
+                prefixText: "+91 ",
+                labelText: "Registered Phone Number",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            if (_otpSent) ...[
+              const SizedBox(height: 20),
+              TextField(
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: "Enter 6-digit OTP",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+            const SizedBox(height: 30),
+            _isLoading 
+              ? const CircularProgressIndicator(color: Color(0xFFFF5722))
+              : ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF5722),
+                    minimumSize: const Size(double.infinity, 55),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _otpSent ? _verifyAndLogin : _checkAndSendOtp,
+                  child: Text(_otpSent ? "Verify & Login" : "Send OTP", style: const TextStyle(color: Colors.white, fontSize: 16)),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class ShopDashboard extends StatelessWidget {
+  final Map<String, dynamic> shopData;
+  const ShopDashboard({super.key, required this.shopData});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        title: Text(shopData['shop_name'] ?? "My Shop"),
+        backgroundColor: const Color(0xFFFF5722),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              firebase_auth.FirebaseAuth.instance.signOut();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const VillageExpressApp()),
+                (route) => false,
+              );
+            },
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          // --- SHOP PROFILE HEADER ---
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFF5722),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(30), 
+                bottomRight: Radius.circular(30)
+              ),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.white,
+                  backgroundImage: NetworkImage(shopData['shop_image'] ?? ''),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        shopData['owner_name'] ?? 'Owner', 
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
+                      ),
+                      Text(
+                        shopData['address'] ?? 'Address', 
+                        style: const TextStyle(color: Colors.white70, fontSize: 13)
+                      ),
+                      Text(
+                        "Phone: ${shopData['phone']}", 
+                        style: const TextStyle(color: Colors.white, fontSize: 12)
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // --- TOOLS GRID ---
+          Expanded(
+            child: GridView.count(
+              padding: const EdgeInsets.all(20),
+              crossAxisCount: 2,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              children: [
+               // Inside ShopDashboard, find the _buildTool for "Add Product"
+_buildTool(context, "Add Product", Icons.add_box, Colors.green, () {
+  Navigator.push(
+    context, 
+    MaterialPageRoute(builder: (_) => AddShopProductPage(shopId: shopData['id']))
+  );
+}),
+                _buildTool(context, "View Products", Icons.inventory_2_outlined, Colors.blue),
+                _buildTool(context, "Orders", Icons.notifications_active_outlined, Colors.orange),
+                _buildTool(context, "Delete Items", Icons.delete_sweep_outlined, Colors.red),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+// Update this function at the bottom of ShopDashboard
+Widget _buildTool(BuildContext context, String title, IconData icon, Color color, VoidCallback onTap) {
+  return GestureDetector(
+    onTap: onTap, // Now it correctly uses the 5th argument
+    child: Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05), 
+            blurRadius: 10, 
+            offset: const Offset(0, 4)
+          )
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 40, color: color),
+          const SizedBox(height: 10),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        ],
+      ),
+    ),
+  );
+}
+
+
+class AddShopProductPage extends StatefulWidget {
+  final dynamic shopId;
+  const AddShopProductPage({super.key, required this.shopId});
+
+  @override
+  _AddShopProductPageState createState() => _AddShopProductPageState();
+}
+
+class _AddShopProductPageState extends State<AddShopProductPage> {
+  final _name = TextEditingController();
+  final _price = TextEditingController();
+  final _unit = TextEditingController();
+  File? _img;
+  bool _loading = false;
+
+  Future<void> _pick() async {
+    final p = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 50);
+    if (p != null) setState(() => _img = File(p.path));
+  }
+
+  Future<void> _upload() async {
+    if (_img == null || _name.text.isEmpty || _price.text.isEmpty) return;
+    setState(() => _loading = true);
+    try {
+      // 1. Upload to registrations bucket (or create a 'products' bucket)
+      final fileName = 'item_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await supabase.storage.from('registrations').upload(fileName, _img!);
+      final url = supabase.storage.from('registrations').getPublicUrl(fileName);
+
+      // 2. Save to shop_products table
+      await supabase.from('shop_products').insert({
+        'shop_id': widget.shopId,
+        'product_name': _name.text,
+        'price': double.parse(_price.text),
+        'unit': _unit.text,
+        'product_image': url,
+      });
+
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Product added!")));
+    } catch (e) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Add New Item"), backgroundColor: const Color(0xFFFF5722), foregroundColor: Colors.white),
+      body: _loading ? const Center(child: CircularProgressIndicator()) : SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(children: [
+          GestureDetector(
+            onTap: _pick,
+            child: Container(
+              height: 150, width: double.infinity,
+              decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(15)),
+              child: _img == null ? const Icon(Icons.add_a_photo, size: 40) : Image.file(_img!, fit: BoxFit.cover),
+            ),
+          ),
+          const SizedBox(height: 20),
+          TextField(controller: _name, decoration: const InputDecoration(labelText: "Product Name (e.g. Rice)")),
+          TextField(controller: _price, decoration: const InputDecoration(labelText: "Price (₹)"), keyboardType: TextInputType.number),
+          TextField(controller: _unit, decoration: const InputDecoration(labelText: "Unit (e.g. 1kg, 500g, 1 Packet)")),
+          const SizedBox(height: 30),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF5722), minimumSize: const Size(double.infinity, 50)),
+            onPressed: _upload,
+            child: const Text("Add to Shop", style: TextStyle(color: Colors.white)),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+
