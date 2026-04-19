@@ -141,8 +141,11 @@ class HomeScreen extends StatelessWidget {
                     title: "I'm a Customer",
                     subtitle: "Order fresh items from local shops",
                     icon: Icons.shopping_basket_rounded,
-                    onTap: () {
-                      // Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerScreen()));
+                    onTap: (){
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CustomerPortalPage()),
+                      );
                     },
                   ),
 
@@ -1147,6 +1150,959 @@ class ViewProductsPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+class CustomerRegistrationPage extends StatefulWidget {
+  const CustomerRegistrationPage({super.key});
+
+  @override
+  _CustomerRegistrationPageState createState() => _CustomerRegistrationPageState();
+}
+
+class _CustomerRegistrationPageState extends State<CustomerRegistrationPage> {
+  // --- CONTROLLERS ---
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _otpController = TextEditingController();
+
+  // --- STATE VARIABLES ---
+  bool _isSent = false;
+  bool _isLoading = false;
+  bool _isSuccess = false;
+  String _vId = "";
+  final _supabase = Supabase.instance.client;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: Stack(
+        children: [
+          // Orange Header Background
+          Container(
+            height: 200,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFF5722),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(50),
+                bottomRight: Radius.circular(50),
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: _isSuccess ? _buildSuccessView() : _buildRegistrationForm(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- VIEW: REGISTRATION FORM ---
+  Widget _buildRegistrationForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Column(
+        children: [
+          const Text(
+            "Customer Registration",
+            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            "Create your account to start shopping",
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const SizedBox(height: 30),
+
+          // Details Card
+          _buildFormCard(
+            title: "Contact Information",
+            children: [
+              _buildTextField(_nameController, "Full Name", Icons.person_rounded),
+              const SizedBox(height: 15),
+              _buildTextField(_phoneController, "Phone Number", Icons.phone_android_rounded, prefix: "+91 "),
+              const SizedBox(height: 15),
+              _buildTextField(_addressController, "Full Address", Icons.location_on_rounded, maxLines: 2),
+            ],
+          ),
+
+          // OTP Card (Shows only after SMS is sent)
+          if (_isSent) ...[
+            const SizedBox(height: 20),
+            _buildFormCard(
+              title: "Security Verification",
+              children: [
+                _buildTextField(_otpController, "Enter 6-digit OTP", Icons.lock_outline_rounded, isNumber: true),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 30),
+
+          // Action Button
+          SizedBox(
+            width: double.infinity,
+            height: 55,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : (_isSent ? _verifyAndRegister : _sendOtp),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF5722),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                elevation: 5,
+              ),
+              child: _isLoading
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : Text(
+                _isSent ? "VERIFY & REGISTER" : "SEND OTP",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- VIEW: SUCCESS MESSAGE ---
+  Widget _buildSuccessView() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 100),
+            const SizedBox(height: 25),
+            const Text(
+              "Registration Successful!",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF102C2E)),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Your profile has been created. You can now log in to the portal.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF5722), // 👈 Original Orange Color
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  elevation: 5,
+                ),
+                child: const Text(
+                    "BACK TO LOGIN",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  // --- LOGIC: FIREBASE & SUPABASE ---
+
+  void _sendOtp() async {
+    if (_phoneController.text.isEmpty) return;
+    setState(() => _isLoading = true);
+
+    try {
+      await firebase_auth.FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: "+91${_phoneController.text}",
+        codeSent: (id, t) => setState(() {
+          _vId = id;
+          _isSent = true;
+          _isLoading = false;
+        }),
+        verificationCompleted: (c) {},
+        verificationFailed: (e) {
+          setState(() => _isLoading = false);
+          _showError(e.message ?? "Verification Failed");
+        },
+        codeAutoRetrievalTimeout: (s) {},
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showError("An unexpected error occurred.");
+    }
+  }
+
+  void _verifyAndRegister() async {
+    if (_otpController.text.isEmpty) return;
+    setState(() => _isLoading = true);
+
+    try {
+      // 1. Verify OTP with Firebase
+      final cred = firebase_auth.PhoneAuthProvider.credential(
+        verificationId: _vId,
+        smsCode: _otpController.text,
+      );
+      await firebase_auth.FirebaseAuth.instance.signInWithCredential(cred);
+
+      // 2. Save Data to Supabase
+      await _supabase.from('customers').insert({
+        'name': _nameController.text,
+        'phone': _phoneController.text,
+        'address': _addressController.text,
+      });
+
+      setState(() {
+        _isLoading = false;
+        _isSuccess = true;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showError("Invalid OTP or Database error. Please try again.");
+    }
+  }
+
+  // --- UI COMPONENTS ---
+
+  Widget _buildFormCard({required String title, required List<Widget> children}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF102C2E))),
+          const SizedBox(height: 20),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController ctrl, String label, IconData icon, {int maxLines = 1, String? prefix, bool isNumber = false}) {
+    return TextField(
+      controller: ctrl,
+      maxLines: maxLines,
+      keyboardType: (prefix != null || isNumber) ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixText: prefix,
+        prefixIcon: Icon(icon, color: const Color(0xFFFF5722), size: 20),
+        filled: true,
+        fillColor: const Color(0xFFF1F3F5),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      ),
+    );
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
+}
+
+
+class CustomerPortalPage extends StatelessWidget {
+  const CustomerPortalPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: SingleChildScrollView( // 👈 Added to allow scrolling
+        child: Column( // 👈 Changed from Stack to Column
+          children: [
+            // Orange Gradient Header
+            Container(
+              height: 320,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [Color(0xFFFF9800), Color(0xFFFF5722)],
+                ),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(80)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 40),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.shopping_basket_rounded, color: Colors.white, size: 50),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Customer Portal",
+                    style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                  ),
+                  const Text(
+                    "Order fresh items from your local market",
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+
+            // Portal Options
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), // 👈 Adjusted padding
+              child: Column(
+                children: [
+                  _buildPortalCard(
+                    title: "Shop Now",
+                    subtitle: "Browse products and place orders",
+                    buttonText: "LOGIN NOW",
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CustomerLoginPage()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  _buildPortalCard(
+                    title: "Join as Member",
+                    subtitle: "Create an account for faster checkout",
+                    buttonText: "START REGISTRATION",
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CustomerRegistrationPage()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 40), // 👈 Replaced Spacer with fixed height
+
+                  // Back Button
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, size: 18, color: Colors.grey),
+                    label: const Text("Back to Role Selection", style: TextStyle(color: Colors.grey)),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortalCard({
+    required String title,
+    required String subtitle,
+    required String buttonText,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [const Color(0xFFFF5722).withOpacity(0.8), const Color(0xFFFF5722)],
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFFF5722).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 5),
+          Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: onTap,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white24,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: Text(buttonText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+class CustomerLoginPage extends StatefulWidget {
+  const CustomerLoginPage({super.key});
+
+  @override
+  _CustomerLoginPageState createState() => _CustomerLoginPageState();
+}
+
+class _CustomerLoginPageState extends State<CustomerLoginPage> {
+  final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
+
+  bool _isOtpSent = false;
+  bool _isLoading = false;
+  String _verificationId = "";
+  final _supabase = Supabase.instance.client;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          // Orange Header
+          Container(
+            height: 300,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFFF9800), Color(0xFFFF5722)],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 20, top: 50),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Customer Login",
+                    style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Enter your registered number to continue",
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Login Form Card
+          Padding(
+            padding: const EdgeInsets.only(top: 240),
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(topLeft: Radius.circular(40), topRight: Radius.circular(40)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(30.0),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    // Phone Input
+                    _buildInputContainer(
+                      child: TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        enabled: !_isOtpSent,
+                        decoration: const InputDecoration(
+                          hintText: "Phone Number",
+                          prefixText: "+91 ",
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+
+                    if (_isOtpSent) ...[
+                      const SizedBox(height: 20),
+                      _buildInputContainer(
+                        child: TextField(
+                          controller: _otpController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            hintText: "Enter 6-digit OTP",
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 40),
+
+                    // Action Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 55,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : (_isOtpSent ? _verifyOtp : _checkAndSendOtp),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF5722),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          elevation: 0,
+                        ),
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(
+                          _isOtpSent ? "LOGIN" : "GET OTP",
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- LOGIC ---
+
+  Future<void> _checkAndSendOtp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.length < 10) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      // 1. Check if customer exists in Supabase
+      final data = await _supabase.from('customers').select().eq('phone', phone).maybeSingle();
+
+      if (data == null) {
+        _showError("Number not registered. Please sign up first.");
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // 2. Trigger Firebase OTP
+      await firebase_auth.FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: "+91$phone",
+        codeSent: (id, t) => setState(() {
+          _verificationId = id;
+          _isOtpSent = true;
+          _isLoading = false;
+        }),
+        verificationCompleted: (_) {},
+        verificationFailed: (e) {
+          setState(() => _isLoading = false);
+          _showError(e.message ?? "Verification failed");
+        },
+        codeAutoRetrievalTimeout: (_) {},
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showError("Something went wrong");
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    setState(() => _isLoading = true);
+    try {
+      final cred = firebase_auth.PhoneAuthProvider.credential(
+        verificationId: _verificationId,
+        smsCode: _otpController.text,
+      );
+
+      // 1. Sign in to Firebase
+      await firebase_auth.FirebaseAuth.instance.signInWithCredential(cred);
+
+      // 2. Navigate to Dashboard and remove Login from history
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const CustomerDashboard()),
+              (route) => false, // This clears the navigation stack
+        );
+      }
+    } catch (e) {
+      _showError("Invalid OTP. Please try again.");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+
+  // --- UI HELPERS ---
+
+  Widget _buildInputContainer({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F3F5),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: child,
+    );
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+}
+
+
+
+
+class CustomerDashboard extends StatefulWidget {
+  const CustomerDashboard({super.key});
+
+  @override
+  _CustomerDashboardState createState() => _CustomerDashboardState();
+}
+
+class _CustomerDashboardState extends State<CustomerDashboard> {
+  final _supabase = Supabase.instance.client;
+
+  // Logic Variables
+  Map<String, dynamic>? _userData;
+  List<dynamic> _shops = [];
+  bool _isLoading = true;
+  String _selectedCategory = "Grocery";
+
+  // Category Data matching the image you sent
+  final List<Map<String, dynamic>> _categories = [
+    {"name": "Food", "icon": Icons.restaurant_rounded, "color": Color(0xFFFFF3E0)},
+    {"name": "Grocery", "icon": Icons.shopping_cart_rounded, "color": Color(0xFFE8F5E9)},
+    {"name": "Dress", "icon": Icons.checkroom_rounded, "color": Color(0xFFF3E5F5)},
+    {"name": "Medicine", "icon": Icons.medical_services_rounded, "color": Color(0xFFFFEBEE)},
+    {"name": "Electronics", "icon": Icons.devices_rounded, "color": Color(0xFFE3F2FD)},
+    {"name": "Hardware", "icon": Icons.build_rounded, "color": Color(0xFFFFFDE7)},
+    {"name": "Stationary", "icon": Icons.edit_note_rounded, "color": Color(0xFFF1F8E9)},
+    {"name": "Other", "icon": Icons.grid_view_rounded, "color": Color(0xFFECEFF1)},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initDashboard();
+  }
+
+  // Combine both fetches into one initialization
+  Future<void> _initDashboard() async {
+    await _fetchUserData();
+    await _fetchShops(_selectedCategory);
+  }
+
+
+// 2. Update the function
+  Future<void> _fetchUserData() async {
+    // 👈 Use Firebase Auth instead of Supabase Auth to get the current user
+    final fbUser = firebase_auth.FirebaseAuth.instance.currentUser;
+
+    if (fbUser != null && fbUser.phoneNumber != null) {
+      String fullPhone = fbUser.phoneNumber!; // e.g. +919692421929
+
+      // Extract last 10 digits to match your Supabase table '9692421929'
+      String shortPhone = fullPhone.substring(fullPhone.length - 10);
+
+      print("DEBUG: Searching Supabase 'customers' table for: $shortPhone");
+
+      try {
+        final response = await _supabase
+            .from('customers')
+            .select()
+            .eq('phone', shortPhone)
+            .maybeSingle();
+
+        if (mounted) {
+          setState(() {
+            // If response is found, this will change 'Searching...' to the Name
+            _userData = response;
+          });
+
+          if (response == null) {
+            print("DEBUG: No record found in Supabase for $shortPhone");
+            // Fallback so it doesn't stay on 'Searching...' forever
+            setState(() => _userData = {'name': 'Guest User'});
+          }
+        }
+      } catch (e) {
+        print("DEBUG: Supabase Error: $e");
+        setState(() => _userData = {'name': 'Error Loading'});
+      }
+    } else {
+      print("DEBUG: No Firebase user session found.");
+      setState(() => _userData = {'name': 'Login Required'});
+    }
+  }
+
+
+
+
+  Future<void> _fetchShops(String category) async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await _supabase
+          .from('shops')
+          .select()
+          .eq('category', category)
+          .eq('status', 'approved');
+      if (mounted) {
+        setState(() {
+          _shops = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTopHeader(),
+              const SizedBox(height: 25),
+              _buildSearchBar(),
+              const SizedBox(height: 25),
+              _buildServiceActions(),
+              const SizedBox(height: 30),
+              _buildSectionHeader("Shop by Category"),
+              const SizedBox(height: 20),
+              _buildCategoryGrid(),
+              const SizedBox(height: 30),
+              _buildSectionHeader("Shops in $_selectedCategory"),
+              const SizedBox(height: 20),
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF5722)))
+                  : _buildShopList(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- UI COMPONENTS ---
+
+  Widget _buildTopHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Welcome back,", style: TextStyle(color: Colors.grey, fontSize: 13)),
+            Text(
+              "${_userData?['name'] ?? 'Anil Kumar Nayak'} 👋",
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF102C2E)),
+            ),
+          ],
+        ),
+        // --- MODERN LOGOUT BUTTON ---
+        InkWell(
+          onTap: () => _handleLogout(context),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFFF5722).withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(10),
+              color: const Color(0xFFFF5722).withOpacity(0.05),
+            ),
+            child: Row(
+              children: const [
+                Icon(Icons.logout_rounded, color: Color(0xFFFF5722), size: 18),
+                SizedBox(width: 5),
+                Text(
+                  "Logout",
+                  style: TextStyle(
+                    color: Color(0xFFFF5722),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+
+// --- Logout Logic ---
+  Future<void> _handleLogout(BuildContext context) async {
+    await firebase_auth.FirebaseAuth.instance.signOut();
+    if (context.mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const CustomerPortalPage()),
+            (route) => false,
+      );
+    }
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      decoration: BoxDecoration(color: const Color(0xFFF1F3F5), borderRadius: BorderRadius.circular(15)),
+      child: const TextField(
+        decoration: InputDecoration(
+          hintText: "Search shops, products...",
+          icon: Icon(Icons.search, color: Colors.grey),
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServiceActions() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _actionItem("Book a Ride", Icons.directions_car_rounded, const Color(0xFFE3F2FD), Colors.blue),
+        _actionItem("Home Service", Icons.build_circle_rounded, const Color(0xFFFFFDE7), Colors.orange),
+        _actionItem("My Orders", Icons.shopping_bag_rounded, const Color(0xFFF3E5F5), Colors.purple),
+      ],
+    );
+  }
+
+  Widget _actionItem(String label, IconData icon, Color bg, Color iconColor) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(15)),
+        child: Column(
+          children: [
+            Icon(icon, color: iconColor, size: 28),
+            const SizedBox(height: 8),
+            Text(label, style: TextStyle(color: iconColor, fontSize: 10, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF102C2E))),
+        const Text("See All →", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _buildCategoryGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 0.8),
+      itemCount: _categories.length,
+      itemBuilder: (context, index) {
+        final cat = _categories[index];
+        bool isSelected = _selectedCategory == cat['name'];
+        return GestureDetector(
+          onTap: () {
+            setState(() => _selectedCategory = cat['name']);
+            _fetchShops(cat['name']);
+          },
+          child: Column(
+            children: [
+              Container(
+                height: 65, width: 65,
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFFFF5722) : cat['color'],
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(cat['icon'], color: isSelected ? Colors.white : const Color(0xFFFF5722), size: 30),
+              ),
+              const SizedBox(height: 8),
+              Text(cat['name'], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildShopList() {
+    if (_shops.isEmpty) return const Center(child: Text("No shops found in this category"));
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _shops.length,
+      itemBuilder: (context, index) {
+        final shop = _shops[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                child: Image.network(
+                  shop['shop_image'] ?? '',
+                  height: 140, width: double.infinity, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(height: 140, color: Colors.grey[200], child: const Icon(Icons.store)),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(shop['shop_name'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(shop['address'], style: const TextStyle(color: Colors.grey, fontSize: 11), maxLines: 1),
+                  ],
+                ),
+              )
+            ],
+          ),
+        );
+      },
     );
   }
 }
